@@ -1,0 +1,114 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "speak-text",
+  "title": "Speak Text",
+  "description": "Speak selected text using OpenAI's advanced text-to-speech",
+  "icon": "extension-icon.png",
+  "author": "lachie_james",
+  "categories": [
+    "Productivity",
+    "Other"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "speak-selected",
+      "title": "Speak Selected Text",
+      "description": "Speak the currently selected text using OpenAI TTS",
+      "mode": "no-view",
+      "preferences": [
+        {
+          "name": "openAiApiKey",
+          "title": "OpenAI API Key",
+          "description": "Your OpenAI API key",
+          "type": "password",
+          "required": true
+        },
+        {
+          "name": "voice",
+          "title": "Voice",
+          "description": "Select the voice to use",
+          "type": "dropdown",
+          "required": true,
+          "default": "alloy",
+          "data": [
+            {
+              "title": "Alloy",
+              "value": "alloy"
+            },
+            {
+              "title": "Echo",
+              "value": "echo"
+            },
+            {
+              "title": "Fable",
+              "value": "fable"
+            },
+            {
+              "title": "Onyx",
+              "value": "onyx"
+            },
+            {
+              "title": "Nova",
+              "value": "nova"
+            },
+            {
+              "title": "Shimmer",
+              "value": "shimmer"
+            }
+          ]
+        },
+        {
+          "name": "model",
+          "title": "Model",
+          "description": "Select the TTS model to use",
+          "type": "dropdown",
+          "required": true,
+          "default": "tts-1",
+          "data": [
+            {
+              "title": "Standard Quality (tts-1)",
+              "value": "tts-1"
+            },
+            {
+              "title": "High Quality (tts-1-hd)",
+              "value": "tts-1-hd"
+            }
+          ]
+        },
+        {
+          "name": "speed",
+          "title": "Speech Speed",
+          "description": "Speed of speech (0.25 to 4.0)",
+          "type": "textfield",
+          "required": false,
+          "default": "1.0"
+        }
+      ]
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.84.10",
+    "@raycast/utils": "^1.17.0",
+    "openai": "^4.28.0",
+    "play-sound": "^1.1.6"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "20.8.10",
+    "@types/node-fetch": "^2.6.11",
+    "@types/play-sound": "^1.1.2",
+    "@types/react": "18.3.3",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "prepublishOnly": "echo \"\\n\\nIt seems like you are trying to publish the Raycast extension to npm.\\n\\nIf you did intend to publish it to npm, remove the \\`prepublishOnly\\` script and rerun \\`npm publish\\` again.\\nIf you wanted to publish it to the Raycast Store instead, use \\`npm run publish\\` instead.\\n\\n\" && exit 1",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}
