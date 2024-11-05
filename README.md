@@ -72,6 +72,7 @@ Configure the extension in Raycast preferences:
 ## Development
 
 This extension is built with:
+
 - React and TypeScript
 - Raycast Extensions API
 - ElevenLabs Text-to-Speech API
@@ -80,6 +81,7 @@ This extension is built with:
 ## Technical Details
 
 The extension:
+
 1. Captures selected text using Raycast's API
 2. Converts text to speech using ElevenLabs' API
 3. Saves the audio temporarily
