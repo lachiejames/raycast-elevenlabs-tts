@@ -1,27 +1,40 @@
 # Speak Text - A Raycast Extension
 
-A powerful text-to-speech extension for Raycast that uses OpenAI's advanced TTS API to read selected text aloud. This extension allows you to convert any selected text to natural-sounding speech with multiple voice options and customizable settings.
+A powerful text-to-speech extension for Raycast that uses ElevenLabs' premium voices to read selected text aloud. This extension allows you to convert any selected text to natural-sounding speech with a wide variety of high-quality voices.
 
 ## Features
 
 - 🎯 Instantly convert selected text to speech
-- 🎤 Choose from 6 high-quality OpenAI voices:
-  - Alloy: A versatile, balanced voice
-  - Echo: A deep, warm tone
-  - Fable: A British-accented storyteller
-  - Onyx: A deep, authoritative voice
-  - Nova: An energetic, clear voice
-  - Shimmer: A clear, youthful sound
-- ⚡ Two quality levels:
-  - Standard (tts-1)
-  - High Definition (tts-1-hd)
-- 🔧 Adjustable speech speed (0.25x to 4.0x)
+- 🎤 Choose from 20 premium ElevenLabs voices:
+  - Brian: Deep American voice, perfect for narration (default)
+  - Alice: Confident British voice
+  - Aria: Expressive American voice
+  - Bill: Trustworthy American voice
+  - Callum: Intense Transatlantic voice
+  - Charlie: Natural Australian voice
+  - Charlotte: Seductive Swedish voice
+  - Chris: Casual American voice
+  - Daniel: Authoritative British voice
+  - Eric: Friendly American voice
+  - George: Warm British voice
+  - Jessica: Expressive American voice
+  - Laura: Upbeat American voice
+  - Liam: Articulate American voice
+  - Lily: Warm British voice
+  - Matilda: Friendly American voice
+  - River: Confident American voice (non-binary)
+  - Roger: Confident American voice
+  - Sarah: Soft American voice
+  - Will: Friendly American voice
+- ⚡ Voice customization:
+  - Stability control (0.0-1.0)
+  - Similarity boost (0.0-1.0)
 - 🎮 Simple keyboard shortcut activation
 
 ## Requirements
 
 - Raycast
-- OpenAI API key
+- ElevenLabs API key
 - Node.js and npm (for development)
 
 ## Installation
@@ -35,7 +48,7 @@ A powerful text-to-speech extension for Raycast that uses OpenAI's advanced TTS 
    ```bash
    npm run dev
    ```
-4. Configure your OpenAI API key in Raycast preferences
+4. Configure your ElevenLabs API key in Raycast preferences
 
 ## Usage
 
@@ -47,24 +60,28 @@ A powerful text-to-speech extension for Raycast that uses OpenAI's advanced TTS 
 
 Configure the extension in Raycast preferences:
 
-- **OpenAI API Key**: Your API key from OpenAI
-- **Voice**: Choose from 6 different voices
-- **Model**: Select standard or HD quality
-- **Speed**: Set speech speed (0.25 to 4.0)
+- **ElevenLabs API Key**: Your API key from ElevenLabs
+- **Voice**: Choose from 20 different voices (Brian is default)
+- **Stability**: Control voice consistency (0.0-1.0)
+  - Higher values: More stable, consistent voice
+  - Lower values: More expressive, variable voice
+- **Similarity Boost**: Control voice clarity (0.0-1.0)
+  - Higher values: Clearer, more precise voice
+  - Lower values: More natural-sounding voice
 
 ## Development
 
 This extension is built with:
 - React and TypeScript
 - Raycast Extensions API
-- OpenAI's Text-to-Speech API
+- ElevenLabs Text-to-Speech API
 - play-sound for audio playback
 
 ## Technical Details
 
 The extension:
 1. Captures selected text using Raycast's API
-2. Converts text to speech using OpenAI's TTS API
+2. Converts text to speech using ElevenLabs' API
 3. Saves the audio temporarily
 4. Plays the audio using play-sound
 5. Automatically cleans up temporary files
@@ -72,7 +89,7 @@ The extension:
 ## Credits
 
 - Built with [Raycast Extensions API](https://developers.raycast.com)
-- Voice synthesis by [OpenAI](https://openai.com)
+- Voice synthesis by [ElevenLabs](https://elevenlabs.io)
 
 ## License
 
