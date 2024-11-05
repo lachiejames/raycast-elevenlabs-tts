@@ -4,7 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import player from "play-sound";
 import { ExecException } from "child_process";
-import fetch from "node-fetch";
+import WebSocket from 'ws';
 
 const audioPlayer = player({});
 
@@ -59,98 +59,155 @@ const VOICE_OPTIONS = {
   "Will (Friendly, American)": "bIHbv24MWmeRgasZH58o",
 };
 
+interface WSMessage {
+  audio: string;
+  isFinal: boolean;
+  normalizedAlignment: null | any;
+}
+
 /**
- * Calls ElevenLabs API to convert text to speech
+ * Streams audio from ElevenLabs API using WebSocket connection
+ * Allows for real-time playback as chunks arrive
  * @throws {Error} with user-friendly message for various error cases
- * 
- * Note: While the official ElevenLabs Node.js library (https://www.npmjs.com/package/elevenlabs) 
- * would provide better TypeScript support and convenience methods, it currently throws 
- * "fetch is not defined" errors in the Raycast environment. Using direct fetch calls as a 
- * workaround until these Node.js compatibility issues are resolved.
  */
-async function callElevenLabsAPI(text: string, voiceId: string, apiKey: string, settings: VoiceSettings): Promise<ArrayBuffer> {
-  try {
-    const request: ElevenLabsRequest = {
-      text,
-      model_id: "eleven_monolingual_v1",
-      voice_settings: settings,
-    };
+async function streamElevenLabsAudio(
+  text: string,
+  voiceId: string,
+  apiKey: string,
+  settings: VoiceSettings,
+  previewText: string
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const wsUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_monolingual_v1`;
+    const ws = new WebSocket(wsUrl, {
+      headers: {
+        'xi-api-key': apiKey,
+      },
+    });
 
-    const response = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "audio/mpeg",
-          "Content-Type": "application/json",
-          "xi-api-key": apiKey,
+    const tempFile = join(tmpdir(), `raycast-tts-${Date.now()}.mp3`);
+    let isPlaying = false;
+
+    ws.on('open', () => {
+      // Send the initial configuration message
+      ws.send(JSON.stringify({
+        text: text,
+        voice_settings: settings,
+        generation_config: {
+          chunk_length_schedule: [120, 160, 250, 290],
+          stream_chunk_size: 8192,
         },
-        body: JSON.stringify(request),
-      }
-    );
+      }));
 
-    if (!response.ok) {
-      const errorText = await response.text();
+      ws.send(JSON.stringify({ type: "bos" }));
+      ws.send(JSON.stringify({ type: "eos" }));
+    });
+
+    ws.on('message', async (data) => {
       try {
-        const errorJson = JSON.parse(errorText) as ElevenLabsError;
-        if (errorJson.detail?.status === "invalid_api_key") {
-          throw new Error("Invalid API key - Please check your ElevenLabs API key in Raycast preferences (⌘,)");
-        }
-        throw new Error(`ElevenLabs error: ${errorJson.detail?.message || errorText}`);
-      } catch (e) {
-        if (e instanceof Error) throw e;
-        throw new Error(`ElevenLabs API error: ${errorText}`);
-      }
-    }
+        const message = JSON.parse(data.toString()) as WSMessage;
+        
+        if (message.audio) {
+          const audioChunk = Buffer.from(message.audio, 'base64');
 
-    return await response.arrayBuffer();
-  } catch (error) {
-    if (error instanceof Error) {
-      // Handle network errors
-      if (error.message.includes("ENOTFOUND")) {
-        throw new Error("No internet connection - Please check your network and try again");
+          // Write the new chunk to the file
+          await fs.writeFile(tempFile, audioChunk, { flag: 'a' });
+
+          // Start playing if not already playing
+          if (!isPlaying) {
+            isPlaying = true;
+            
+            await showToast({
+              style: Toast.Style.Success,
+              title: `▶️ Now speaking: "${previewText}"`,
+            });
+
+            audioPlayer.play(tempFile, async (err: PlayError) => {
+              if (err) {
+                console.error("Error playing audio:", err);
+                await showToast({
+                  style: Toast.Style.Failure,
+                  title: `❌ Playback failed: ${err.message}`,
+                });
+                reject(err);
+              }
+              // Clean up the temporary file
+              fs.unlink(tempFile).catch(console.error);
+            });
+          }
+        }
+
+        if (message.isFinal) {
+          ws.close();
+          resolve();
+        }
+      } catch (error) {
+        console.error("WebSocket message error:", error);
+        reject(new Error("Failed to process audio stream"));
       }
-      if (error.message.includes("FetchError")) {
-        throw new Error("Network error - Please check your internet connection");
+    });
+
+    ws.on('error', (error) => {
+      console.error("WebSocket error:", error);
+      fs.unlink(tempFile).catch(console.error);
+      
+      if (error.message.includes("invalid_api_key")) {
+        reject(new Error("Invalid API key - Please check your ElevenLabs API key in Raycast preferences (⌘,)"));
+      } else if (error.message.includes("ENOTFOUND")) {
+        reject(new Error("No internet connection - Please check your network and try again"));
+      } else {
+        reject(new Error(`ElevenLabs error: ${error.message}`));
       }
-      // Rethrow already formatted errors
-      throw error;
-    }
-    throw new Error("Unknown error while calling ElevenLabs API");
+    });
+
+    ws.on('close', () => {
+      if (!isPlaying) {
+        fs.unlink(tempFile).catch(console.error);
+      }
+    });
+  });
+}
+
+function getTextPreview(text: string, maxLength = 50): string {
+  const trimmedText = text.trim();
+  return trimmedText.length > maxLength ? `${trimmedText.substring(0, maxLength)}...` : trimmedText;
+}
+
+function getTextStats(text: string) {
+  return {
+    wordCount: text.trim().split(/\s+/).length,
+    charCount: text.length,
+  };
+}
+
+function getVoiceNameFromId(voiceId: string): string {
+  return (
+    Object.entries(VOICE_OPTIONS)
+      .find(([, id]) => id === voiceId)?.[0]
+      .split(" (")[0] || "Unknown Voice"
+  );
+}
+
+async function validateSelectedText(): Promise<string> {
+  const selectedText = await getSelectedText();
+
+  if (!selectedText || selectedText.trim().length === 0) {
+    throw new Error("No text selected - Select text and try again (⌥ D)");
   }
+
+  return selectedText;
 }
 
 export default async function Command() {
   try {
-    // Show initial checking toast
     await showToast({
       style: Toast.Style.Animated,
       title: "🔍 Checking for selected text...",
     });
 
-    let selectedText: string;
-    try {
-      selectedText = await getSelectedText();
-    } catch (error) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "⚠️ No text selected - Select text and try again (⌥ D)",
-      });
-      return;
-    }
-
-    if (!selectedText || selectedText.trim().length === 0) {
-      await showToast({
-        style: Toast.Style.Failure,
-        title: "⚠️ Selected text is empty - Select text and try again (⌥ D)",
-      });
-      return;
-    }
-
-    // Calculate text stats
-    const wordCount = selectedText.trim().split(/\s+/).length;
-    const charCount = selectedText.length;
-    const previewText = selectedText.length > 50 ? `${selectedText.substring(0, 50)}...` : selectedText;
+    const selectedText = await validateSelectedText();
+    const { wordCount, charCount } = getTextStats(selectedText);
+    const previewText = getTextPreview(selectedText);
 
     await showToast({
       style: Toast.Style.Animated,
@@ -158,58 +215,30 @@ export default async function Command() {
     });
 
     const preferences = getPreferenceValues<Preferences>();
-
-    // Get voice name from VOICE_OPTIONS
-    const voiceName = Object.entries(VOICE_OPTIONS)
-      .find(([_, id]) => id === preferences.voiceId)?.[0]
-      .split(" (")[0] || "Unknown Voice";
+    const voiceName = getVoiceNameFromId(preferences.voiceId);
 
     await showToast({
       style: Toast.Style.Animated,
       title: `🎙️ Generating speech with ${voiceName} (Stability: ${preferences.stability})`,
     });
 
-    // Prepare voice settings
     const settings: VoiceSettings = {
       stability: Math.min(1, Math.max(0, parseFloat(preferences.stability) || 0.5)),
       similarity_boost: Math.min(1, Math.max(0, parseFloat(preferences.similarityBoost) || 0.75)),
     };
 
-    // Call ElevenLabs API
-    const audioBuffer = await callElevenLabsAPI(
+    await showToast({
+      style: Toast.Style.Animated,
+      title: "🔊 Starting audio stream...",
+    });
+
+    await streamElevenLabsAudio(
       selectedText,
       preferences.voiceId,
       preferences.elevenLabsApiKey,
-      settings
+      settings,
+      previewText
     );
-
-    await showToast({
-      style: Toast.Style.Animated,
-      title: "🔊 Preparing audio playback...",
-    });
-
-    // Process audio file
-    const buffer = Buffer.from(audioBuffer);
-    const tempFile = join(tmpdir(), `raycast-tts-${Date.now()}.mp3`);
-    await fs.writeFile(tempFile, buffer);
-
-    await showToast({
-      style: Toast.Style.Success,
-      title: `▶️ Now speaking: "${previewText}"`,
-    });
-
-    // Play the audio file
-    audioPlayer.play(tempFile, async (err: PlayError) => {
-      if (err) {
-        console.error("Error playing audio:", err);
-        await showToast({
-          style: Toast.Style.Failure,
-          title: `❌ Playback failed: ${err.message}`,
-        });
-      }
-      // Clean up the temporary file
-      fs.unlink(tempFile).catch(console.error);
-    });
   } catch (error) {
     console.error("Error:", error);
     await showToast({
