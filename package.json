@@ -76,18 +76,18 @@
   "dependencies": {
     "@raycast/api": "^1.84.10",
     "@raycast/utils": "^1.17.0",
-    "node-fetch": "^2.6.11",
-    "play-sound": "^1.1.6"
+    "play-sound": "^1.1.6",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "@raycast/eslint-config": "^1.0.11",
     "@types/node": "20.8.10",
-    "@types/node-fetch": "^2.6.11",
     "@types/play-sound": "^1.1.2",
     "@types/react": "18.3.3",
     "eslint": "^8.57.0",
     "prettier": "^3.3.3",
-    "typescript": "^5.4.5"
+    "typescript": "^5.4.5",
+    "@types/ws": "^8.5.10"
   },
   "scripts": {
     "build": "ray build",
