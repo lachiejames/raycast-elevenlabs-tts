@@ -1,27 +1,48 @@
 import { getSelectedText, showHUD, getPreferenceValues } from "@raycast/api";
-import OpenAI from "openai";
 import { promises as fs } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import player from "play-sound";
 import { ExecException } from "child_process";
+import fetch from "node-fetch";
 
-// Initialize audio player
 const audioPlayer = player({});
 
 interface Preferences {
-  openAiApiKey: string;
-  voice: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
-  model: "tts-1" | "tts-1-hd";
-  speed: string;
+  elevenLabsApiKey: string;
+  voiceId: string;
+  stability: string;
+  similarityBoost: string;
 }
 
-// Type for the play-sound callback error
 type PlayError = ExecException | null;
+
+// Updated ElevenLabs voices list with the provided voices
+const VOICE_OPTIONS = {
+  "Brian (Deep, American, Narration)": "nPczCjzI2devNBz1zQrb",
+  "Alice (Confident, British)": "Xb7hH8MSUJpSbSDYk0k2",
+  "Aria (Expressive, American)": "9BWtsMINqrJLrRacOk9x",
+  "Bill (Trustworthy, American)": "pqHfZKP75CvOlQylNhV4",
+  "Callum (Intense, Transatlantic)": "N2lVS1w4EtoT3dr4eOWO",
+  "Charlie (Natural, Australian)": "IKne3meq5aSn9XLyUdCD",
+  "Charlotte (Seductive, Swedish)": "XB0fDUnXU5powFXDhCwa",
+  "Chris (Casual, American)": "iP95p4xoKVk53GoZ742B",
+  "Daniel (Authoritative, British)": "onwK4e9ZLuTAKqWW03F9",
+  "Eric (Friendly, American)": "cjVigY5qzO86Huf0OWal",
+  "George (Warm, British)": "JBFqnCBsd6RMkjVDRZzb",
+  "Jessica (Expressive, American)": "cgSgspJ2msm6clMCkdW9",
+  "Laura (Upbeat, American)": "FGY2WhTYpPnrIDTdsKH5",
+  "Liam (Articulate, American)": "TX3LPaxmHKxFdv7VOQHJ",
+  "Lily (Warm, British)": "pFZP5JQG7iQjIQuC4Bku",
+  "Matilda (Friendly, American)": "XrExE9yKIg1WjnnlVkGX",
+  "River (Confident, American)": "SAz9YHcvj6GT2YYXdXww",
+  "Roger (Confident, American)": "CwhRBWXzGAHq8TQ4Fs17",
+  "Sarah (Soft, American)": "EXAVITQu4vr4xnSDxMaL",
+  "Will (Friendly, American)": "bIHbv24MWmeRgasZH58o"
+};
 
 export default async function Command() {
   try {
-    // Get the currently selected text
     const selectedText = await getSelectedText();
     
     if (!selectedText) {
@@ -29,24 +50,37 @@ export default async function Command() {
       return;
     }
 
-    // Get user preferences
     const preferences = getPreferenceValues<Preferences>();
     
-    // Initialize OpenAI client
-    const openai = new OpenAI({
-      apiKey: preferences.openAiApiKey,
-    });
+    // Convert stability and similarity boost to numbers (0-1)
+    const stability = Math.min(1, Math.max(0, parseFloat(preferences.stability) || 0.5));
+    const similarityBoost = Math.min(1, Math.max(0, parseFloat(preferences.similarityBoost) || 0.75));
 
-    // Parse speed and ensure it's within valid range (0.25 to 4.0)
-    const speed = Math.min(4.0, Math.max(0.25, parseFloat(preferences.speed) || 1.0));
+    // Call ElevenLabs API
+    const response = await fetch(
+      `https://api.elevenlabs.io/v1/text-to-speech/${preferences.voiceId}`,
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'audio/mpeg',
+          'Content-Type': 'application/json',
+          'xi-api-key': preferences.elevenLabsApiKey
+        },
+        body: JSON.stringify({
+          text: selectedText,
+          model_id: "eleven_monolingual_v1",
+          voice_settings: {
+            stability,
+            similarity_boost: similarityBoost
+          }
+        })
+      }
+    );
 
-    // Generate speech using OpenAI's TTS API
-    const response = await openai.audio.speech.create({
-      model: preferences.model,
-      voice: preferences.voice,
-      input: selectedText,
-      speed: speed,
-    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`ElevenLabs API error: ${error}`);
+    }
 
     // Save the audio buffer to a temporary file
     const arrayBuffer = await response.arrayBuffer();
