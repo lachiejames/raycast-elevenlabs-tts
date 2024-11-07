@@ -13,4 +13,4 @@ export function setupWebSocket(url: string, apiKey: string): WebSocket {
   return new WebSocket(url, {
     headers: { "xi-api-key": apiKey },
   });
-} 
+}

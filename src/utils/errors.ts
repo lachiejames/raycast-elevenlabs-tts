@@ -14,4 +14,4 @@ export function getErrorMessage(error: Error): string {
     return "No internet connection - Please check your network and try again";
   }
   return `ElevenLabs error: ${error.message}`;
-} 
+}
