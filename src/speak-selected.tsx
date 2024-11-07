@@ -83,4 +83,4 @@ export default async function Command() {
       title: `❌ ${error instanceof Error ? error.message : "Unknown error"}`,
     });
   }
-} 
+}

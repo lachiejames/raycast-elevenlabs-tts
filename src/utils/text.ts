@@ -63,4 +63,4 @@ export async function validateSelectedText(): Promise<string> {
     }
     throw error;
   }
-} 
+}

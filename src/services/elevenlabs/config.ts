@@ -48,4 +48,4 @@ export function createStreamConfig(text: string, settings: VoiceSettings): Eleve
       stream_chunk_size: 8192, // Optimal size for smooth streaming
     },
   };
-} 
+}
