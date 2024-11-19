@@ -20,20 +20,15 @@ Convert selected text to natural-sounding speech using ElevenLabs' premium text-
 ## Prerequisites
 
 - Raycast v1.50.0 or higher
-- macOS 10.15 or higher
 - An ElevenLabs account with API key ([Get one here](https://elevenlabs.io))
+- macOS 10.15 or higher
 
 ## Getting Started
 
 1. Get your ElevenLabs API key:
 
-   - Create an account at [elevenlabs.io](https://elevenlabs.io)
-   - Go to your [API Keys](https://elevenlabs.io/app/settings/api-keys)
-   - Click "Create API Key"
-   - (Optional) Set the key name to something like "Raycast TTS"
-   - (Optional) Click "Restrict Key" and enable only the permissions needed for this extension:
-     - ✅ Text to Speech
-     - ❌ All other permissions
+   - Sign up/login at [ElevenLabs](https://elevenlabs.io)
+   - Go to your Profile Settings
    - Copy your API key
 
 2. Configure the extension in Raycast preferences (⌘,):

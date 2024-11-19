@@ -16,4 +16,4 @@ export interface Preferences {
 export interface VoiceSettings {
   stability: number; // Higher values = more consistent voice
   similarity_boost: number; // Higher values = clearer but potentially less natural
-}
+} 
