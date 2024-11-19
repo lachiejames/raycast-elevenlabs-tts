@@ -2,11 +2,8 @@ import { getSelectedText, showToast, Toast, getPreferenceValues } from "@raycast
 import { promises as fs } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import player from "play-sound";
-import { ExecException } from "child_process";
+import { spawn } from "child_process";
 import WebSocket from "ws";
-
-const audioPlayer = player({});
 
 /**
  * Preferences configurable through Raycast's UI
@@ -173,15 +170,15 @@ async function streamElevenLabsAudio(
         });
 
         // Play the audio file and handle completion/errors
-        audioPlayer.play(tempFile, (err: ExecException | null) => {
-          if (err) {
-            console.error("Error playing audio:", err);
-            reject(err);
-          }
+        try {
+          await playAudio(tempFile);
           console.log("Audio playback completed, cleaning up...");
-          // Clean up temp file after playback
-          fs.unlink(tempFile).catch(console.error);
-        });
+          await fs.unlink(tempFile);
+        } catch (err) {
+          console.error("Error playing audio:", err);
+          await fs.unlink(tempFile).catch(console.error);
+          reject(err);
+        }
       }
 
       // Handle end of stream
@@ -374,4 +371,23 @@ export default async function Command() {
       title: `❌ ${error instanceof Error ? error.message : "Unknown error"}`,
     });
   }
+}
+
+function playAudio(filePath: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const process = spawn('afplay', [filePath]);
+    
+    process.on('error', (error) => {
+      console.error('Error playing audio:', error);
+      reject(error);
+    });
+
+    process.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`afplay exited with code ${code}`));
+      }
+    });
+  });
 }

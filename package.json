@@ -136,7 +136,6 @@
   "dependencies": {
     "@raycast/api": "1.84.12",
     "@raycast/utils": "1.18.0",
-    "play-sound": "1.1.6",
     "ws": "8.18.0"
   },
   "devDependencies": {
