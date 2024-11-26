@@ -189,13 +189,28 @@ export class AudioManager extends EventEmitter {
     if (!this.ws) return;
 
     // Create configuration with optimized chunk settings
+    // For more info, see: https://elevenlabs.io/docs/api-reference/websockets
     const config: ElevenLabsConfig = {
       text: this.config.text,
       voice_settings: this.config.settings,
       generation_config: {
-        // Use progressive chunk sizes for better initial latency
+        // chunk_length_schedule determines when audio generation is triggered based on buffer size
+        // Each number represents the minimum characters needed before generating the next audio chunk
+        // [120, 160, 250, 290] means:
+        // - First chunk: Wait for 120 characters
+        // - Second chunk: Wait for additional 160 characters
+        // - Third chunk: Wait for additional 250 characters
+        // - Fourth and beyond: Wait for additional 290 characters each time
+        // Lower values = faster response but potentially lower quality
+        // Higher values = better quality but increased latency
+        // Values should be between 50-500 characters
         chunk_length_schedule: [120, 160, 250, 290],
-        // 8KB chunks provide good balance of performance and memory usage
+
+        // stream_chunk_size controls the size of each audio chunk sent back from the server
+        // 8KB (8192 bytes) is the recommended size that balances:
+        // - Network efficiency (not too many small packets)
+        // - Memory usage (not too large to buffer)
+        // - Playback smoothness (consistent chunk size for steady streaming)
         stream_chunk_size: 8192,
       },
     };
