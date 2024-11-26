@@ -9,7 +9,6 @@ Convert selected text to natural-sounding speech using ElevenLabs' premium text-
 - Adjust voice stability and clarity
 - Real-time streaming playback
 - Simple keyboard shortcut activation
-- Stop playback anytime with Escape key
 
 ## Installation
 
@@ -39,9 +38,8 @@ Convert selected text to natural-sounding speech using ElevenLabs' premium text-
 ## Usage
 
 1. Select any text in any application
-2. Trigger the extension (default: ⌥ D)
+2. Trigger the extension
 3. The selected text will be read aloud
-4. Press Escape to stop playback
 
 ## Voice Settings
 
