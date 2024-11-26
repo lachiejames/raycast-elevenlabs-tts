@@ -1,8 +1,5 @@
 {
   "preset": "ts-jest",
   "testEnvironment": "node",
-  "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"],
-  "moduleNameMapper": {
-    "@raycast/api": "<rootDir>/src/__mocks__/@raycast/api.ts"
-  }
-} 
+  "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json", "node"]
+}
