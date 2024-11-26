@@ -8,12 +8,12 @@
 export function validateSelectedText(text: string): string {
   try {
     if (!text?.trim()) {
-      throw new Error("No text selected - Select text and try again (⌥ D)");
+      throw new Error("No text selected - Select text and try again");
     }
     return text;
   } catch (error) {
     if (error instanceof Error && error.message.includes("Unable to get selected text")) {
-      throw new Error("Select text in any application before running this command (⌥ D)");
+      throw new Error("Select text in any application before running this command");
     }
     throw error;
   }
