@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { spawn } from "child_process";
 import WebSocket from "ws";
+import { EventEmitter } from "events";
 
 /**
  * Preferences configurable through Raycast's UI
@@ -49,181 +50,326 @@ interface WSMessage {
 }
 
 /**
- * Sets up a WebSocket connection to ElevenLabs streaming API
- *
- * @param url - WebSocket endpoint URL for ElevenLabs streaming
- * @param apiKey - ElevenLabs API key for authentication
- * @returns WebSocket instance configured for streaming
- * @throws {Error} if connection setup fails
+ * Configuration for audio streaming and playback
+ * Centralizes settings to reduce function argument counts
  */
-function setupWebSocket(url: string, apiKey: string): WebSocket {
-  console.log("Setting up WebSocket connection to ElevenLabs...");
-  return new WebSocket(url, {
-    headers: { "xi-api-key": apiKey },
-  });
+interface StreamConfig {
+  text: string;
+  voiceId: string;
+  apiKey: string;
+  settings: VoiceSettings;
 }
 
 /**
- * Creates configuration for ElevenLabs streaming API
- * Optimizes chunk settings for real-time playback performance
+ * Manages the audio streaming and playback process
+ * Uses EventEmitter for better separation of concerns and testability
  *
- * @param text - Text content to convert to speech
- * @param settings - Voice generation settings
- * @returns Configuration object for streaming API
+ * Design decisions:
+ * - Single responsibility: Handles only audio streaming and playback
+ * - Event-based: Allows loose coupling between stream processing and playback
+ * - Temporary files: Used instead of memory buffers to handle large audio streams
+ *   without consuming excessive memory
  */
-function createStreamConfig(text: string, settings: VoiceSettings): ElevenLabsConfig {
-  // Log settings for debugging but exclude text content for privacy
-  console.log("Creating stream configuration with settings:", {
-    stability: settings.stability,
-    similarity_boost: settings.similarity_boost,
-  });
-
-  return {
-    text,
-    voice_settings: settings,
-    generation_config: {
-      // Chunk schedule determines how text is split for streaming
-      // Smaller initial chunks enable faster playback start
-      chunk_length_schedule: [120, 160, 250, 290],
-      stream_chunk_size: 8192, // Optimal size for smooth streaming
-    },
+class AudioManager extends EventEmitter {
+  private readonly wsUrl: string;
+  private readonly tempFile: string;
+  private ws: WebSocket | null = null;
+  private streamState = {
+    isPlaying: false,
+    chunksReceived: 0,
   };
-}
 
-/**
- * Streams audio from ElevenLabs API and plays it in real-time
- *
- * Note: While the official ElevenLabs Node.js library (https://www.npmjs.com/package/elevenlabs)
- * would provide better TypeScript support and convenience methods, it currently throws
- * "fetch is not defined" errors in the Raycast environment, and also requires additional
- * dependencies to be installed (MPV and ffmpeg), which makes extension setup more complex.
- * Using direct fetch calls as a workaround until these Node.js compatibility issues are resolved.
- *
- * @param text - Text content to convert to speech
- * @param voiceId - ID of the selected voice
- * @param apiKey - ElevenLabs API key
- * @param settings - Voice generation settings
- * @param previewText - Truncated text preview for UI feedback
- * @returns Promise that resolves when audio playback completes
- * @throws {Error} with user-friendly message for various error cases
- */
-async function streamElevenLabsAudio(
-  text: string,
-  voiceId: string,
-  apiKey: string,
-  settings: VoiceSettings,
-  previewText: string,
-): Promise<void> {
-  console.log("Starting audio stream for text:", previewText);
+  constructor(private readonly config: StreamConfig) {
+    super();
+    this.wsUrl = this.buildWebSocketUrl(config.voiceId);
+    this.tempFile = this.createTempFilePath();
+  }
 
-  // Create a unique temporary file for storing audio chunks
-  const tempFile = join(tmpdir(), `raycast-tts-${Date.now()}.mp3`);
+  /**
+   * Main entry point for streaming and playing audio
+   * Orchestrates the streaming process while maintaining clean separation of concerns
+   */
+  async streamAndPlay(): Promise<void> {
+    console.log("Starting audio stream process");
 
-  // Construct WebSocket URL with voice ID and model parameters
-  const wsUrl = `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=eleven_monolingual_v1`;
+    try {
+      // Initialize stream first to ensure WebSocket connection is ready
+      await this.initializeStream();
+      console.log("Stream initialization complete, waiting for completion");
 
-  return new Promise((resolve, reject) => {
-    // Initialize WebSocket connection with API key authentication
-    const ws = setupWebSocket(wsUrl, apiKey);
+      // Wait for all chunks to be received and processed
+      await this.waitForStreamCompletion();
+      console.log("Stream and playback completed successfully");
+    } finally {
+      // Ensure cleanup runs even if errors occur during streaming
+      await this.cleanup();
+    }
+  }
 
-    // Track playback state and chunk statistics
-    let isPlaying = false;
-    let chunksReceived = 0;
+  /**
+   * Builds WebSocket URL with appropriate parameters
+   * Uses eleven_monolingual_v1 model for optimal streaming performance
+   */
+  private buildWebSocketUrl(voiceId: string): string {
+    // Use monolingual model for better streaming performance
+    const modelId = "eleven_monolingual_v1";
+    console.log(`Building WebSocket URL for voice ${voiceId} with model ${modelId}`);
+    return `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=${modelId}`;
+  }
 
-    // Handle successful WebSocket connection
-    ws.on("open", () => {
-      console.log("WebSocket connection established, sending configuration...");
+  /**
+   * Creates unique temporary file path for audio chunks
+   * Uses system temp directory to ensure proper cleanup
+   */
+  private createTempFilePath(): string {
+    // Use timestamp to ensure unique file names for concurrent operations
+    const timestamp = Date.now();
+    const filePath = join(tmpdir(), `raycast-tts-${timestamp}.mp3`);
+    console.log(`Created temporary file path: ${filePath}`);
+    return filePath;
+  }
 
-      // Send initial configuration with text and voice settings
-      ws.send(JSON.stringify(createStreamConfig(text, settings)));
+  /**
+   * Initializes WebSocket connection and sets up event handlers
+   * Separates connection setup from message handling
+   */
+  private async initializeStream(): Promise<void> {
+    console.log("Initializing WebSocket connection...");
 
-      // Signal start and end of text stream to ElevenLabs
-      ws.send(JSON.stringify({ type: "bos" })); // Beginning of Stream
-      ws.send(JSON.stringify({ type: "eos" })); // End of Stream
+    // Create WebSocket with API key authentication
+    this.ws = new WebSocket(this.wsUrl, {
+      headers: { "xi-api-key": this.config.apiKey },
     });
 
-    // Process incoming WebSocket messages
-    ws.on("message", async (data) => {
-      const message = JSON.parse(data.toString()) as WSMessage;
+    // Set up event handlers before waiting for connection
+    this.setupEventHandlers();
+    console.log("Event handlers configured, waiting for connection...");
 
-      // Skip non-audio messages (like acknowledgments)
-      if (!message.audio) {
-        console.log("Received non-audio message:", message);
-        return;
-      }
+    // Wait for connection before sending configuration
+    await this.waitForConnection();
+    console.log("Connection established, sending stream configuration");
 
-      chunksReceived++;
-      console.log(`Processing audio chunk ${chunksReceived}`);
+    // Send configuration after connection is confirmed
+    this.sendStreamConfiguration();
+  }
 
-      // Convert Base64 audio data to buffer and append to temp file
-      await fs.writeFile(tempFile, Buffer.from(message.audio, "base64"), { flag: "a" });
+  /**
+   * Sets up WebSocket event handlers
+   * Each handler is focused on a single responsibility
+   */
+  private setupEventHandlers(): void {
+    if (!this.ws) return;
 
-      // Start playback when we receive the first chunk
-      if (!isPlaying) {
-        isPlaying = true;
-        console.log("Starting audio playback...");
+    this.ws.on("error", this.handleWebSocketError.bind(this));
+    this.ws.on("close", this.handleWebSocketClose.bind(this));
+    this.ws.on("message", this.handleWebSocketMessage.bind(this));
+  }
 
-        // Show toast notification that audio is playing
-        await showToast({
-          style: Toast.Style.Success,
-          title: `▶️ Now speaking: "${previewText}"`,
-        });
+  /**
+   * Waits for WebSocket connection to establish
+   * Returns a promise that resolves when connection is ready
+   */
+  private waitForConnection(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!this.ws) return reject(new Error("WebSocket not initialized"));
 
-        // Play the audio file and handle completion/errors
-        try {
-          await playAudio(tempFile);
-          console.log("Audio playback completed, cleaning up...");
-          await fs.unlink(tempFile);
-        } catch (err) {
-          console.error("Error playing audio:", err);
-          await fs.unlink(tempFile).catch(console.error);
-          reject(err);
-        }
-      }
-
-      // Handle end of stream
-      if (message.isFinal) {
-        console.log(`Stream completed, received ${chunksReceived} chunks`);
-        ws.close();
+      this.ws.once("open", () => {
+        console.log("WebSocket connection established");
         resolve();
-      }
+      });
+      this.ws.once("error", reject);
     });
-
-    // Handle WebSocket errors
-    ws.on("error", (error) => {
-      console.error("WebSocket error:", error);
-      // Clean up temp file on error
-      fs.unlink(tempFile).catch(console.error);
-      reject(new Error(getErrorMessage(error)));
-    });
-
-    // Clean up resources when WebSocket closes
-    ws.on("close", () => {
-      console.log("WebSocket connection closed");
-      if (!isPlaying) {
-        console.log("Cleaning up unused temp file...");
-        fs.unlink(tempFile).catch(console.error);
-      }
-    });
-  });
-}
-
-/**
- * Formats error messages for user display
- * Converts technical errors into user-friendly messages
- *
- * @param error - Original error from WebSocket or playback
- * @returns User-friendly error message
- */
-function getErrorMessage(error: Error): string {
-  console.error("Processing error:", error);
-  if (error.message.includes("invalid_api_key")) {
-    return "Invalid API key - Please check your ElevenLabs API key in Raycast preferences (⌘,)";
   }
-  if (error.message.includes("ENOTFOUND")) {
-    return "No internet connection - Please check your network and try again";
+
+  /**
+   * Sends stream configuration to ElevenLabs API
+   * Uses optimized chunk settings for real-time playback
+   */
+  private sendStreamConfiguration(): void {
+    if (!this.ws) return;
+
+    // Create configuration with optimized chunk settings
+    const config: ElevenLabsConfig = {
+      text: this.config.text,
+      voice_settings: this.config.settings,
+      generation_config: {
+        // Use progressive chunk sizes for better initial latency
+        chunk_length_schedule: [120, 160, 250, 290],
+        // 8KB chunks provide good balance of performance and memory usage
+        stream_chunk_size: 8192,
+      },
+    };
+
+    console.log("Sending stream configuration:", {
+      textLength: config.text.length,
+      settings: config.voice_settings,
+      chunkSchedule: config.generation_config.chunk_length_schedule,
+    });
+
+    // Send configuration and stream control messages
+    this.ws.send(JSON.stringify(config));
+    this.ws.send(JSON.stringify({ type: "bos" })); // Beginning of stream
+    this.ws.send(JSON.stringify({ type: "eos" })); // End of stream marker
   }
-  return `ElevenLabs error: ${error.message}`;
+
+  /**
+   * Handles incoming WebSocket messages
+   * Processes audio chunks and manages playback state
+   */
+  private async handleWebSocketMessage(data: WebSocket.Data): Promise<void> {
+    const message = JSON.parse(data.toString()) as WSMessage;
+
+    // Skip non-audio messages (e.g., acknowledgments)
+    if (!message.audio) {
+      console.log("Received non-audio message, skipping");
+      return;
+    }
+
+    // Track progress for debugging and user feedback
+    this.streamState.chunksReceived++;
+    console.log(`Processing chunk ${this.streamState.chunksReceived} (${message.audio.length} bytes)`);
+
+    await this.processAudioChunk(message);
+  }
+
+  /**
+   * Processes individual audio chunks
+   * Handles both initial playback and stream completion
+   */
+  private async processAudioChunk(message: WSMessage): Promise<void> {
+    // Write chunk to file before attempting playback
+    await this.writeAudioChunk(message.audio as string);
+
+    // Start playback only for the first chunk
+    if (!this.streamState.isPlaying) {
+      console.log("First chunk received, initiating playback");
+      await this.beginPlayback();
+    }
+
+    // Handle stream completion
+    if (message.isFinal) {
+      console.log(`Stream complete after ${this.streamState.chunksReceived} chunks`);
+      this.ws?.close();
+      this.emit("complete");
+    }
+  }
+
+  /**
+   * Writes audio chunk to temporary file
+   * Uses append mode to build complete audio stream
+   */
+  private async writeAudioChunk(audio: string): Promise<void> {
+    // Append chunk to temp file in base64 decoded form
+    await fs.writeFile(this.tempFile, Buffer.from(audio, "base64"), { flag: "a" });
+    console.log(`Wrote ${audio.length} bytes to temporary file`);
+  }
+
+  /**
+   * Initiates audio playback
+   * Marks playback as started and begins playing audio file
+   */
+  private async beginPlayback(): Promise<void> {
+    // Update state before starting playback
+    this.streamState.isPlaying = true;
+    console.log("Beginning audio playback from temporary file");
+
+    try {
+      await this.playAudioFile();
+      console.log("Audio playback completed successfully");
+    } catch (error) {
+      console.error("Playback failed:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Plays audio file using system audio player
+   * Uses afplay for macOS compatibility
+   */
+  private async playAudioFile(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      // Use macOS native audio player for reliable playback
+      const process = spawn("afplay", [this.tempFile]);
+
+      // Handle process errors (e.g., afplay not found)
+      process.on("error", (error) => {
+        console.error("Audio player process error:", error);
+        reject(error);
+      });
+
+      // Monitor process completion
+      process.on("close", (code) => {
+        if (code === 0) {
+          console.log("Audio player process completed successfully");
+          resolve();
+        } else {
+          console.error(`Audio player process failed with code ${code}`);
+          reject(new Error(`afplay exited with code ${code}`));
+        }
+      });
+    });
+  }
+
+  /**
+   * Waits for stream completion or error
+   * Returns a promise that resolves when streaming is done
+   */
+  private waitForStreamCompletion(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.once("complete", resolve);
+      this.once("error", reject);
+    });
+  }
+
+  /**
+   * Handles WebSocket errors
+   * Formats error messages for user display
+   */
+  private handleWebSocketError(error: Error): void {
+    console.error("WebSocket error:", error);
+    this.emit("error", new Error(this.formatErrorMessage(error)));
+  }
+
+  /**
+   * Handles WebSocket connection close
+   * Ensures cleanup if playback hasn't started
+   */
+  private handleWebSocketClose(): void {
+    console.log("WebSocket connection closed");
+    if (!this.streamState.isPlaying) {
+      this.cleanup().catch(console.error);
+    }
+  }
+
+  /**
+   * Formats error messages for user display
+   * Provides friendly messages for common errors
+   */
+  private formatErrorMessage(error: Error): string {
+    const errorMap = {
+      invalid_api_key: "Invalid API key - Please check your ElevenLabs API key in preferences (⌘,)",
+      ENOTFOUND: "No internet connection - Please check your network and try again",
+    };
+
+    for (const [key, message] of Object.entries(errorMap)) {
+      if (error.message.includes(key)) return message;
+    }
+
+    return `ElevenLabs error: ${error.message}`;
+  }
+
+  /**
+   * Cleans up temporary resources
+   * Ensures temporary file is removed after use
+   */
+  private async cleanup(): Promise<void> {
+    try {
+      await fs.unlink(this.tempFile);
+      console.log("Temporary file cleaned up");
+    } catch (error) {
+      console.error("Cleanup error:", error);
+    }
+  }
 }
 
 /**
@@ -235,12 +381,8 @@ function getErrorMessage(error: Error): string {
  * @returns Trimmed and potentially truncated text
  */
 function getTextPreview(text: string, maxLength = 50): string {
-  // Remove any leading/trailing whitespace before processing
-  const trimmedText = text.trim();
-
-  // If text is longer than maxLength, truncate and add ellipsis
-  // Otherwise return the full trimmed text
-  return trimmedText.length > maxLength ? `${trimmedText.substring(0, maxLength)}...` : trimmedText;
+  const trimmed = text.trim();
+  return trimmed.length > maxLength ? `${trimmed.substring(0, maxLength)}...` : trimmed;
 }
 
 /**
@@ -251,14 +393,10 @@ function getTextPreview(text: string, maxLength = 50): string {
  * @returns Object containing word and character counts
  */
 function getTextStats(text: string) {
-  // Split text on any whitespace characters to count words
-  // This handles multiple spaces, tabs, and newlines
-  const wordCount = text.trim().split(/\s+/).length;
-
-  // Simple character count including spaces and punctuation
-  const charCount = text.length;
-
-  return { wordCount, charCount };
+  return {
+    wordCount: text.trim().split(/\s+/).length,
+    charCount: text.length,
+  };
 }
 
 /**
@@ -270,20 +408,12 @@ function getTextStats(text: string) {
  */
 async function validateSelectedText(): Promise<string> {
   try {
-    // Attempt to get text selection from the active application
-    // This will throw if no text is selected or if we can't access the selection
-    const selectedText = await getSelectedText();
-
-    // Check for empty or whitespace-only selection
-    // This catches cases where text is selected but is just spaces/tabs/newlines
-    if (!selectedText || selectedText.trim().length === 0) {
+    const text = await getSelectedText();
+    if (!text?.trim()) {
       throw new Error("No text selected - Select text and try again (⌥ D)");
     }
-
-    return selectedText;
+    return text;
   } catch (error) {
-    // Special handling for Raycast's "Unable to get selected text" error
-    // This occurs when no text is actually selected in any application
     if (error instanceof Error && error.message.includes("Unable to get selected text")) {
       throw new Error("Select text in any application before running this command (⌥ D)");
     }
@@ -298,15 +428,10 @@ async function validateSelectedText(): Promise<string> {
  * @param preferences - User-configured preferences from Raycast
  * @returns Normalized voice settings
  */
-async function prepareVoiceSettings(preferences: Preferences): Promise<VoiceSettings> {
-  // Parse string values from preferences and ensure they're within valid range
-  // Default to reasonable values if parsing fails or values are out of bounds
-  const stability = Math.min(1, Math.max(0, parseFloat(preferences.stability) || 0.5));
-  const similarityBoost = Math.min(1, Math.max(0, parseFloat(preferences.similarityBoost) || 0.75));
-
+function prepareVoiceSettings(preferences: Preferences): VoiceSettings {
   return {
-    stability, // Higher values = more consistent voice
-    similarity_boost: similarityBoost, // Higher values = clearer but potentially less natural
+    stability: Math.min(1, Math.max(0, parseFloat(preferences.stability) || 0.5)),
+    similarity_boost: Math.min(1, Math.max(0, parseFloat(preferences.similarityBoost) || 0.75)),
   };
 }
 
@@ -322,72 +447,39 @@ async function prepareVoiceSettings(preferences: Preferences): Promise<VoiceSett
  */
 export default async function Command() {
   try {
-    // Log the start of command execution for debugging
-    console.log("Starting TTS command...");
+    console.log("Starting TTS command");
+    await showToast({ style: Toast.Style.Animated, title: "🔍 Checking for selected text..." });
 
-    // Show initial toast to indicate we're checking for text selection
-    // This provides immediate feedback that the command is running
-    await showToast({
-      style: Toast.Style.Animated,
-      title: "🔍 Checking for selected text...",
-    });
-
-    // Get and validate the selected text
-    // This will throw an error if no text is selected or if it's empty
     const selectedText = await validateSelectedText();
-
-    // Calculate statistics about the selected text for user feedback
-    // This helps users understand how much text will be processed
-    const { wordCount, charCount } = getTextStats(selectedText);
+    const { wordCount } = getTextStats(selectedText);
     const previewText = getTextPreview(selectedText);
-    console.log(`Processing text: ${wordCount} words, ${charCount} chars`);
 
-    // Load user preferences from Raycast
-    // This includes API key, voice selection, and voice settings
     const preferences = getPreferenceValues<Preferences>();
+    const settings = prepareVoiceSettings(preferences);
 
-    // Prepare voice settings and get the friendly name of the selected voice
-    // This converts string preferences to proper number values and validates ranges
-    const settings = await prepareVoiceSettings(preferences);
-
-    // Show processing toast with text statistics
-    // This lets users know their text was successfully captured
     await showToast({
       style: Toast.Style.Animated,
       title: `🎙️ Processing ${wordCount} words`,
     });
 
-    // Start the streaming process
-    // This will connect to ElevenLabs, generate audio, and play it
-    await streamElevenLabsAudio(selectedText, preferences.voiceId, preferences.elevenLabsApiKey, settings, previewText);
-  } catch (error) {
-    // Log the full error for debugging purposes
-    console.error("Command error:", error);
+    const audioManager = new AudioManager({
+      text: selectedText,
+      voiceId: preferences.voiceId,
+      apiKey: preferences.elevenLabsApiKey,
+      settings,
+    });
 
-    // Show a user-friendly error message
-    // If it's a known error type, show its message, otherwise show generic error
+    await showToast({
+      style: Toast.Style.Success,
+      title: `▶️ Now speaking: "${previewText}"`,
+    });
+
+    await audioManager.streamAndPlay();
+  } catch (error) {
+    console.error("Command error:", error);
     await showToast({
       style: Toast.Style.Failure,
       title: `❌ ${error instanceof Error ? error.message : "Unknown error"}`,
     });
   }
-}
-
-function playAudio(filePath: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const process = spawn('afplay', [filePath]);
-    
-    process.on('error', (error) => {
-      console.error('Error playing audio:', error);
-      reject(error);
-    });
-
-    process.on('close', (code) => {
-      if (code === 0) {
-        resolve();
-      } else {
-        reject(new Error(`afplay exited with code ${code}`));
-      }
-    });
-  });
 }
