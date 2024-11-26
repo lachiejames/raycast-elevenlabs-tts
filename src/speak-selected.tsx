@@ -70,7 +70,7 @@ interface StreamConfig {
  * - Temporary files: Used instead of memory buffers to handle large audio streams
  *   without consuming excessive memory
  */
-class AudioManager extends EventEmitter {
+export class AudioManager extends EventEmitter {
   private readonly wsUrl: string;
   private readonly tempFile: string;
   private ws: WebSocket | null = null;
@@ -380,7 +380,7 @@ class AudioManager extends EventEmitter {
  * @param maxLength - Maximum length before truncation (default: 50)
  * @returns Trimmed and potentially truncated text
  */
-function getTextPreview(text: string, maxLength = 50): string {
+export function getTextPreview(text: string, maxLength = 50): string {
   const trimmed = text.trim();
   return trimmed.length > maxLength ? `${trimmed.substring(0, maxLength)}...` : trimmed;
 }
@@ -392,9 +392,10 @@ function getTextPreview(text: string, maxLength = 50): string {
  * @param text - Text content to analyze
  * @returns Object containing word and character counts
  */
-function getTextStats(text: string) {
+export function getTextStats(text: string) {
+  const trimmed = text.trim();
   return {
-    wordCount: text.trim().split(/\s+/).length,
+    wordCount: trimmed ? trimmed.split(/\s+/).length : 0,
     charCount: text.length,
   };
 }
@@ -406,7 +407,7 @@ function getTextStats(text: string) {
  * @returns Selected text if available
  * @throws {Error} with guidance if no text is selected
  */
-async function validateSelectedText(): Promise<string> {
+export async function validateSelectedText(): Promise<string> {
   try {
     const text = await getSelectedText();
     if (!text?.trim()) {
@@ -428,7 +429,7 @@ async function validateSelectedText(): Promise<string> {
  * @param preferences - User-configured preferences from Raycast
  * @returns Normalized voice settings
  */
-function prepareVoiceSettings(preferences: Preferences): VoiceSettings {
+export function prepareVoiceSettings(preferences: Preferences): VoiceSettings {
   return {
     stability: Math.min(1, Math.max(0, parseFloat(preferences.stability) || 0.5)),
     similarity_boost: Math.min(1, Math.max(0, parseFloat(preferences.similarityBoost) || 0.75)),
