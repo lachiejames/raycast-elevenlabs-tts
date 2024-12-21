@@ -1,6 +1,7 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "elevenlabs-tts",
+  "version": "1.0.0",
   "title": "ElevenLabs TTS",
   "description": "Convert selected text to lifelike speech using ElevenLabs' premium AI voices",
   "icon": "extension-icon.png",
