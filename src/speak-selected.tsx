@@ -5,6 +5,10 @@ import { prepareVoiceSettings } from "./voice/settings";
 import { validateSelectedText } from "./text/validation";
 import { getTextStats } from "./text/processing";
 import { getTextPreview } from "./text/processing";
+import { promisify } from "util";
+import { exec } from "child_process";
+
+const execAsync = promisify(exec);
 
 /**
  * Main command handler for the Raycast extension
@@ -18,6 +22,23 @@ import { getTextPreview } from "./text/processing";
  */
 export default async function Command() {
   try {
+    // First, check for and stop any existing audio playback
+    try {
+      const { stdout } = await execAsync("pgrep afplay");
+      if (stdout.trim()) {
+        await execAsync(`pkill afplay`);
+        console.log("Stopped existing audio playback");
+        await showToast({
+          style: Toast.Style.Success,
+          title: "⏹️ Stopped existing audio playback",
+        });
+        return;
+      }
+    } catch (error) {
+      // No existing audio processes found, continue with new playback
+      console.log("No existing audio processes found");
+    }
+
     console.log("Starting TTS command");
     await showToast({ style: Toast.Style.Animated, title: "🔍 Checking for selected text..." });
 
