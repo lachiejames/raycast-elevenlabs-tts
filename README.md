@@ -1,80 +1,73 @@
-# ElevenLabs TTS
+# ElevenLabs TTS for Raycast
 
-Convert selected text to natural-sounding speech using ElevenLabs' premium text-to-speech voices.
+🎙️ Transform any text into natural-sounding speech instantly with ElevenLabs' premium AI voices - right from your Raycast!
 
-## Features
+[Watch Demo](https://www.loom.com/share/d340fc09e88c47f1a032c0da291f3cc3)
 
-- Convert any selected text to speech instantly
-- Choose from 20 high-quality voices
-- Adjust voice stability and clarity
-- Real-time streaming playback
-- Simple keyboard shortcut activation
+![Extension Setup](assets/readme-1.png)
+![Voice Selection](assets/readme-2.png)
 
-## Installation
+## ✨ Features
 
-1. Install the extension from Raycast's store
-2. Configure your ElevenLabs API key in preferences
-3. Select your preferred voice and settings
+- 🚀 Instant text-to-speech conversion with a simple keyboard shortcut
+- 🎭 20+ premium AI voices with unique personalities and accents
+- 🎛️ Fine-tune voice stability and clarity to match your needs
+- 🔊 Real-time streaming playback
+- ⚡️ Zero configuration needed - just add your API key and go!
 
-## Prerequisites
+## 🚀 Quick Start
 
-- Raycast v1.50.0 or higher
-- An ElevenLabs account with API key ([Get one here](https://elevenlabs.io))
-- macOS 10.15 or higher
+1. Install from Raycast Store
+2. Add your ElevenLabs API key ([Get one here](https://elevenlabs.io))
+3. Set up your preferred hotkey in Raycast (⌘ + ,)
+4. Pick your favorite voice and start speaking!
 
-## Getting Started
+## 📋 Requirements
 
-1. Get your ElevenLabs API key:
-
-   - Sign up/login at [ElevenLabs](https://elevenlabs.io)
-   - Go to your Profile Settings
-   - Copy your API key
-
-2. Configure the extension in Raycast preferences (⌘,):
-   - Paste your ElevenLabs API key
-   - Choose your preferred voice
-   - Adjust stability and similarity boost settings (optional)
+- Raycast v1.50.0+
+- ElevenLabs API key
+- macOS 10.15+
 
 ## Usage
 
 1. Select any text in any application
-2. Trigger the extension
+2. Press your configured hotkey (e.g., ⌘ + Shift + S)
 3. The selected text will be read aloud
+4. Press the same hotkey again to stop playback at any time
 
-## Voice Settings
+💡 **Important**: By default, no hotkey is assigned. You'll need to:
 
-### Stability (0.0-1.0)
+1. Open Raycast Settings (⌘ + ,)
+2. Go to Extensions
+3. Find "Speak Selected Text"
+4. Click "Add Hotkey" to set your preferred keyboard shortcut
 
-Controls how stable/consistent the voice will be:
+## ⚙️ Advanced Settings
 
-- Higher values (0.7-1.0): More consistent, good for formal content
-- Lower values (0.0-0.3): More expressive, good for casual content
-- Default: 0.5 (balanced)
+- **Stability** (0.0 - 1.0): Controls voice consistency. Higher values make the voice more stable but potentially less expressive.
+- **Similarity Boost** (0.0 - 1.0): Adjusts how closely the output matches the original voice. Higher values increase similarity but may impact performance.
 
-### Similarity Boost (0.0-1.0)
+## 💡 Pro Tips
 
-Controls voice clarity and naturalness:
+- Use shorter text segments for faster response times
+- Experiment with different stability settings for each voice to find your perfect balance
+- The extension works with any text-based application including browsers, editors, and documents
 
-- Higher values (0.7-1.0): Clearer, more precise pronunciation
-- Lower values (0.0-0.3): More natural-sounding, with subtle variations
-- Default: 0.75 (clear but natural)
+## 🔍 Troubleshooting
 
-## Credits
+- If no sound plays, check your API key and internet connection
+- Ensure you have sufficient credits in your ElevenLabs account
+- For long texts, consider breaking them into smaller segments
 
-This extension uses:
+## 🤝 Contributing
 
-- [ElevenLabs API](https://elevenlabs.io) for text-to-speech conversion
-- [Raycast API](https://developers.raycast.com) for the extension framework
+Found a bug or have a feature request? Please open an issue on GitHub!
 
-## Support
+## 📝 License
 
-For issues and feature requests, please [create an issue](https://github.com/raycast/extensions/issues) in the Raycast extensions repository.
+MIT License - feel free to use and modify as needed.
 
-## Privacy
+## 🙏 Credits
 
-This extension:
-
-- Only processes text that you explicitly select
-- Sends selected text to ElevenLabs for speech synthesis
-- Does not store any data locally
-- Does not collect any analytics
+- [ElevenLabs](https://elevenlabs.io) for their amazing Text-to-Speech API
+- [Raycast](https://raycast.com) for the excellent extension platform
