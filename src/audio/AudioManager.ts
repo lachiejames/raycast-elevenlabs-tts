@@ -180,6 +180,10 @@ export class AudioManager extends EventEmitter {
   private async handleWebSocketMessage(data: Data): Promise<void> {
     const message = JSON.parse(data.toString()) as WSMessage;
 
+    if (message.error === "invalid_api_key") {
+      this.emit("error", new Error("Invalid API key - Please check your ElevenLabs API key in Raycast preferences"));
+    }
+
     // Skip non-audio messages (e.g., acknowledgments)
     if (!message.audio) {
       console.log("Received non-audio message, skipping");
