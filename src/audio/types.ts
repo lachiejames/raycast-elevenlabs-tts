@@ -21,6 +21,7 @@ export interface ElevenLabsConfig {
 export interface WSMessage {
   audio?: string;
   isFinal?: boolean;
+  error?: string;
 }
 
 /**
