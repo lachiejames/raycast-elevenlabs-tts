@@ -1,6 +1,5 @@
 import { showToast, Toast, getPreferenceValues, getSelectedText } from "@raycast/api";
 import { AudioManager } from "./audio/AudioManager";
-import { Preferences } from "./voice/types";
 import { prepareVoiceSettings } from "./voice/settings";
 import { validateSelectedText } from "./text/validation";
 import { getTextStats } from "./text/processing";
@@ -47,7 +46,7 @@ export default async function Command() {
     const { wordCount } = getTextStats(selectedText);
     const previewText = getTextPreview(selectedText);
 
-    const preferences = getPreferenceValues<Preferences>();
+    const preferences = getPreferenceValues<Preferences.SpeakSelected>();
     const settings = prepareVoiceSettings(preferences);
 
     await showToast({
