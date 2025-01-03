@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import { EventEmitter } from "events";
-import { promises as fs } from "node:fs";
+import { promises as fs, existsSync } from "node:fs";
 import { tmpdir } from "os";
 import { join } from "path/posix";
 import { WebSocket, Data } from "ws";
@@ -329,7 +329,7 @@ export class AudioManager extends EventEmitter {
    */
   private async cleanup(): Promise<void> {
     try {
-      await fs.unlink(this.tempFile);
+      if (existsSync(this.tempFile)) await fs.unlink(this.tempFile);
       console.log("Temporary file cleaned up");
     } catch (error) {
       console.error("Cleanup error:", error);
