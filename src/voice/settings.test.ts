@@ -8,6 +8,7 @@ describe("prepareVoiceSettings", () => {
       elevenLabsApiKey: "dummy",
       voiceId: "nPczCjzI2devNBz1zQrb",
       playbackSpeed: "1.00",
+      modelId: "eleven_flash_v2_5"
     };
 
     const settings = prepareVoiceSettings(prefs);
@@ -22,6 +23,7 @@ describe("prepareVoiceSettings", () => {
       elevenLabsApiKey: "dummy",
       voiceId: "nPczCjzI2devNBz1zQrb",
       playbackSpeed: "1.00",
+      modelId: "eleven_flash_v2_5"
     };
 
     const settings = prepareVoiceSettings(prefs);
@@ -36,6 +38,7 @@ describe("prepareVoiceSettings", () => {
       elevenLabsApiKey: "dummy",
       voiceId: "nPczCjzI2devNBz1zQrb",
       playbackSpeed: "1.00",
+      modelId: "eleven_flash_v2_5"
     };
 
     const settings = prepareVoiceSettings(prefs);
@@ -50,6 +53,7 @@ describe("prepareVoiceSettings", () => {
       elevenLabsApiKey: "dummy",
       voiceId: "nPczCjzI2devNBz1zQrb",
       playbackSpeed: "1.00",
+      modelId: "eleven_flash_v2_5"
     };
 
     const settings = prepareVoiceSettings(prefs);

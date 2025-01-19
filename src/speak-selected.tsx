@@ -60,6 +60,7 @@ export default async function Command() {
       apiKey: preferences.elevenLabsApiKey,
       settings,
       playbackSpeed: preferences.playbackSpeed,
+      modelId: preferences.modelId,
     });
 
     await showToast({

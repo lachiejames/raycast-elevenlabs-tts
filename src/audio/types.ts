@@ -34,4 +34,5 @@ export interface StreamConfig {
   apiKey: string;
   settings: VoiceSettings;
   playbackSpeed: string; // Speed multiplier for audio playback (0.5-2.0)
+  modelId: string; // Added model selection
 }
