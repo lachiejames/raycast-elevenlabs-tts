@@ -26,6 +26,24 @@
           "required": true
         },
         {
+          "name": "modelId",
+          "title": "AI Model",
+          "description": "Select voice model:\n• Flash: Ultra-low latency (75ms), 32 languages, lower cost\n• Multilingual: Most lifelike & emotionally rich, 32 languages, 2x cost",
+          "type": "dropdown",
+          "required": true,
+          "default": "eleven_multilingual_v2",
+          "data": [
+            {
+              "title": "Multilingual",
+              "value": "eleven_multilingual_v2"
+            },
+            {
+              "title": "Flash",
+              "value": "eleven_flash_v2_5"
+            }
+          ]
+        },
+        {
           "name": "voiceId",
           "title": "Voice",
           "description": "Select the voice to use",

@@ -1,5 +1,13 @@
 # Raycast ElevenLabs TTS Changelog
 
+## [1.2.0] - 2025-01-19
+
+### Added
+- Advanced model selection with Flash and Multilingual options
+- Support for 32 languages through both available models
+- Ultra-low latency option with Flash model
+- Optimized credit usage with model-specific pricing
+
 ## [1.1.0] - 2025-01-19
 
 ### Added

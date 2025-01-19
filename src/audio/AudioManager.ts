@@ -55,11 +55,10 @@ export class AudioManager extends EventEmitter {
 
   /**
    * Builds WebSocket URL with appropriate parameters
-   * Uses eleven_monolingual_v1 model for optimal streaming performance
+   * Uses modelId from config to build the URL
    */
   private buildWebSocketUrl(voiceId: string): string {
-    // Use monolingual model for better streaming performance
-    const modelId = "eleven_monolingual_v1";
+    const modelId = this.config.modelId;
     console.log(`Building WebSocket URL for voice ${voiceId} with model ${modelId}`);
     return `wss://api.elevenlabs.io/v1/text-to-speech/${voiceId}/stream-input?model_id=${modelId}`;
   }
